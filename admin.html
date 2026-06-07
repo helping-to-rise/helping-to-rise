@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Helping to Rise — Admin Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a1628; color: #e0e6ed; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1a3a5c 0%, #0d2137 100%); padding: 20px; text-align: center; border-bottom: 2px solid #00d4aa; }
+        .header h1 { color: #00d4aa; font-size: 24px; margin-bottom: 5px; }
+        .header p { color: #8ba3be; font-size: 12px; }
+        .header .spirit { color: #ffd700; font-size: 11px; margin-top: 8px; font-style: italic; }
+        .nav-tabs { display: flex; background: #0d2137; border-bottom: 1px solid #1a3a5c; overflow-x: auto; }
+        .nav-tab { flex: 1; padding: 15px 10px; text-align: center; background: none; border: none; color: #8ba3be; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.3s; }
+        .nav-tab.active { color: #00d4aa; border-bottom: 2px solid #00d4aa; background: #1a3a5c; }
+        .tab-content { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .tab-content.active { display: block; }
+        .card { background: #122540; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #1a3a5c; }
+        .card-title { color: #00d4aa; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: #0d2137; border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #1a3a5c; }
+        .stat-number { font-size: 32px; font-weight: bold; color: #00d4aa; }
+        .stat-label { font-size: 12px; color: #8ba3be; margin-top: 5px; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; color: #8ba3be; font-size: 13px; margin-bottom: 8px; }
+        .form-input { width: 100%; padding: 12px 15px; background: #0d2137; border: 1px solid #1a3a5c; border-radius: 8px; color: #e0e6ed; font-size: 14px; }
+        .form-input:focus { outline: none; border-color: #00d4aa; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #00d4aa 0%, #00a884 100%); color: #0a1628; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3); }
+        .btn-danger { background: linear-gradient(135deg, #ff4757 0%, #cc3344 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #ffa502 0%, #cc8400 100%); color: #0a1628; }
+        .btn-secondary { background: #1a3a5c; color: #8ba3be; }
+        .table-container { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #0d2137; color: #00d4aa; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1a3a5c; }
+        td { padding: 12px; border-bottom: 1px solid #1a3a5c; color: #e0e6ed; }
+        tr:hover td { background: #1a3a5c; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .status-active { background: rgba(0, 212, 170, 0.2); color: #00d4aa; }
+        .status-expired { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
+        .status-completed { background: rgba(255, 165, 2, 0.2); color: #ffa502; }
+        .status-pending { background: rgba(139, 163, 190, 0.2); color: #8ba3be; }
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; }
+        .alert-info { background: rgba(0, 212, 170, 0.1); border: 1px solid #00d4aa; color: #00d4aa; }
+        .alert-warning { background: rgba(255, 165, 2, 0.1); border: 1px solid #ffa502; color: #ffa502; }
+        .winner-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 15px; }
+        .winner-card { background: #0d2137; padding: 15px; border-radius: 8px; border: 1px solid #1a3a5c; }
+        .winner-address { font-family: monospace; font-size: 11px; color: #8ba3be; word-break: break-all; }
+        .winner-amount { color: #00d4aa; font-weight: 600; margin-top: 5px; }
+        .progress-bar { width: 100%; height: 8px; background: #0d2137; border-radius: 4px; overflow: hidden; margin-top: 10px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #00d4aa, #00a884); transition: width 0.3s; }
+        .hidden { display: none !important; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #1a3a5c; border-top-color: #00d4aa; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal { background: #122540; border-radius: 12px; padding: 30px; max-width: 500px; width: 100%; border: 1px solid #1a3a5c; }
+        .modal-title { color: #00d4aa; font-size: 18px; margin-bottom: 15px; }
+        .modal-text { color: #8ba3be; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .flagged-row { background: rgba(255, 71, 87, 0.1) !important; }
+        .flagged-row td { color: #ff4757 !important; }
+        .copy-box { background: #0a1628; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; color: #ffd700; word-break: break-all; margin: 10px 0; border: 1px solid #1a3a5c; }
+        .usd-display { color: #ffd700; font-size: 14px; margin-top: 5px; }
+        @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .nav-tab { font-size: 11px; padding: 12px 8px; } .winner-list { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🌟 Helping to Rise</h1>
+        <p>Admin Panel — Share a Meal, Spread Hope</p>
+        <div class="spirit">"Because we have more than enough, so no one should have less than enough"</div>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
+        <button class="nav-tab" onclick="showTab('create')">➕ Create</button>
+        <button class="nav-tab" onclick="showTab('active')">🎁 Active</button>
+        <button class="nav-tab" onclick="showTab('pending')">⏳ Pending</button>
+        <button class="nav-tab" onclick="showTab('security')">🛡️ Security</button>
+        <button class="nav-tab" onclick="showTab('referrals')">🔗 Referrals</button>
+        <button class="nav-tab" onclick="showTab('transactions')">💰 Transactions</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="tab-content active">
+        <div class="stats-grid">
+            <div class="stat-box"><div class="stat-number" id="stat-total-users">0</div><div class="stat-label">Total Users</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-active-users">0</div><div class="stat-label">Activated Users</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-total-giveaways">0</div><div class="stat-label">Total Giveaways</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-active-giveaways">0</div><div class="stat-label">Active Giveaways</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-total-given">0</div><div class="stat-label">RISE Given</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-pending-activations">0</div><div class="stat-label">Pending Activations</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-total-referrals">0</div><div class="stat-label">Total Referrals</div></div>
+            <div class="stat-box"><div class="stat-number" id="stat-wallet-balance">0</div><div class="stat-label">Your Wallet RISE</div></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📢 App Announcement</div>
+            <div class="alert alert-info">Type a message below and click "Post" to show it on all user screens immediately.</div>
+            <div class="form-group">
+                <label class="form-label">Announcement Message</label>
+                <input type="text" class="form-input" id="announcement-text" placeholder="e.g., Wallet activation opens tomorrow!">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button class="btn btn-primary" onclick="postAnnouncement()">📢 Post to App</button>
+                <button class="btn btn-danger" onclick="clearAnnouncement()">❌ Clear</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📈 Quick Actions</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="showTab('create')">+ Create New Giveaway</button>
+                <button class="btn btn-warning" onclick="showTab('pending')">Review Pending Users</button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">🌍 Country Breakdown</div>
+            <div class="table-container">
+                <table><thead><tr><th>Country</th><th>Users</th><th>%</th></tr></thead>
+                <tbody id="country-table-body"><tr><td colspan="3" style="text-align:center;color:#8ba3be;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE -->
+    <div id="create" class="tab-content">
+        <div class="card">
+            <div class="card-title">➕ Create New Giveaway</div>
+            <div class="alert alert-info">💡 <strong>Tip:</strong> Name it after the giver or occasion. Example: "username", "Weekly Rise"</div>
+            <div class="form-group">
+                <label class="form-label">Giveaway Name / Giver Name</label>
+                <input type="text" class="form-input" id="gw-name" placeholder="e.g., username, Weekly Rise">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Total Amount (RISE)</label>
+                <input type="number" class="form-input" id="gw-amount" placeholder="50000000000" oninput="calculateUSD()">
+                <small style="color:#4a6078;font-size:11px;">Total RISE tokens for this giveaway</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Current RISE Price (USD)</label>
+                <input type="number" class="form-input" id="gw-price" placeholder="0.002" step="0.0001" oninput="calculateUSD()">
+                <small style="color:#4a6078;font-size:11px;">Enter today's price so you know the dollar value</small>
+            </div>
+            <div class="usd-display" id="usd-value" style="display:none;"></div>
+            <div class="form-group">
+                <label class="form-label">Number of Winners</label>
+                <input type="number" class="form-input" id="gw-winners" placeholder="100">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Duration (Hours)</label>
+                <input type="number" class="form-input" id="gw-duration" placeholder="48" value="48">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Social Media Link (Optional)</label>
+                <input type="url" class="form-input" id="gw-social" placeholder="https://instagram.com/username">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Your Message to Community</label>
+                <input type="text" class="form-input" id="gw-message" placeholder="Thank you for supporting your fans!">
+            </div>
+            <button class="btn btn-primary" onclick="createGiveaway()">Generate Code & Create</button>
+            <div id="generated-code" class="hidden" style="margin-top:20px;padding:20px;background:#0d2137;border-radius:8px;border:1px solid #00d4aa;">
+                <div style="color:#00d4aa;font-size:18px;font-weight:bold;margin-bottom:10px;">✅ Giveaway Created!</div>
+                <div style="color:#8ba3be;font-size:13px;margin-bottom:15px;">Share this code on social media:</div>
+                <div id="code-display" style="font-family:monospace;font-size:24px;color:#ffd700;background:#0a1628;padding:15px;border-radius:8px;text-align:center;word-break:break-all;"></div>
+                <div style="margin-top:15px;display:flex;gap:10px;">
+                    <button class="btn btn-secondary" onclick="copyCode()">📋 Copy Code</button>
+                    <button class="btn btn-secondary" onclick="copyShareText()">📱 Copy Share Text</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTIVE -->
+    <div id="active" class="tab-content">
+        <div class="card">
+            <div class="card-title">🎁 Active Giveaways</div>
+            <div id="active-giveaways-list"><div class="alert alert-info">Loading giveaways...</div></div>
+        </div>
+    </div>
+
+    <!-- PENDING -->
+    <div id="pending" class="tab-content">
+        <div class="card">
+            <div class="card-title">⏳ Pending Activations</div>
+            <div class="table-container">
+                <table><thead><tr><th>User</th><th>Country</th><th>Wallet</th><th>Joined</th><th>Action</th></tr></thead>
+                <tbody id="pending-table-body"><tr><td colspan="5" style="text-align:center;color:#8ba3be;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div id="security" class="tab-content">
+        <div class="card">
+            <div class="card-title">🛡️ Security & Anti-Fraud</div>
+            <div class="table-container">
+                <table><thead><tr><th>User</th><th>Flag</th><th>Details</th><th>Action</th></tr></thead>
+                <tbody id="security-table-body"><tr><td colspan="4" style="text-align:center;color:#8ba3be;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- REFERRALS -->
+    <div id="referrals" class="tab-content">
+        <div class="card">
+            <div class="card-title">🔗 Referral Earnings</div>
+            <div class="table-container">
+                <table><thead><tr><th>Referrer</th><th>Referred</th><th>Giveaway</th><th>10% Due</th><th>Status</th></tr></thead>
+                <tbody id="referral-table-body"><tr><td colspan="5" style="text-align:center;color:#8ba3be;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div id="transactions" class="tab-content">
+        <div class="card">
+            <div class="card-title">💰 Transaction History</div>
+            <div class="alert alert-info">
+                <strong>Manual Send Mode:</strong> Use the list below to copy wallet addresses and amounts. Send from your wallet, then click "Mark Paid".
+            </div>
+            <div style="margin-bottom:15px;">
+                <button class="btn btn-secondary" onclick="copyPendingList()">📋 Copy All Pending</button>
+            </div>
+            <div class="table-container">
+                <table><thead><tr><th>Date</th><th>To (Wallet)</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="transaction-table-body"><tr><td colspan="5" style="text-align:center;color:#8ba3be;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-title">🎉 Winners Selected</div>
+            <div class="modal-text" id="winner-modal-text"></div>
+            <div id="winner-list-display" class="winner-list"></div>
+            <div class="copy-box hidden" id="winner-copy-box"></div>
+            <div style="margin-top:10px;">
+                <button class="btn btn-secondary" onclick="copyWinnerAddresses()">📋 Copy Address List</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                <button class="btn btn-primary" onclick="confirmSend()">Record Winners & Create Send List</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== ADMIN AUTH ====================
+        const ADMIN_PASSWORD = 'Rise2024!';
+        
+        function checkAdminAuth() {
+            const input = prompt('🔒 Enter Admin Password:');
+            if (input !== ADMIN_PASSWORD) {
+                document.body.innerHTML = '<div style="text-align:center;padding:50px;color:#ff4757;font-size:24px;">🚫 Access Denied</div>';
+                return false;
+            }
+            return true;
+        }
+
+        // ==================== FIREBASE CONFIG ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyANx-YfvKcqm_7e1q4H87e2o9yuik_JS4M",
+            authDomain: "helping-to-rise.firebaseapp.com",
+            projectId: "helping-to-rise",
+            storageBucket: "helping-to-rise.firebasestorage.app",
+            messagingSenderId: "19289194289",
+            appId: "1:19289194289:web:a43b1c7d4dbf39280f7a10",
+            measurementId: "G-GWNHLNV3T1"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ==================== NAVIGATION ====================
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            const tabs = ['dashboard', 'create', 'active', 'pending', 'security', 'referrals', 'transactions'];
+            const index = tabs.indexOf(tabId);
+            if (index >= 0) {
+                document.querySelectorAll('.nav-tab')[index].classList.add('active');
+            }
+            
+            if (tabId === 'active') loadActiveGiveaways();
+            if (tabId === 'pending') loadPendingActivations();
+            if (tabId === 'security') loadSecurityFlags();
+            if (tabId === 'referrals') loadReferrals();
+            if (tabId === 'transactions') loadTransactions();
+        }
+
+        // ==================== ANNOUNCEMENT ====================
+        async function postAnnouncement() {
+            const text = document.getElementById('announcement-text').value.trim();
+            if (!text) {
+                alert('Please type a message first.');
+                return;
+            }
+            await db.collection('app_settings').doc('announcement').set({
+                message: text,
+                active: true,
+                posted_at: new Date().toISOString()
+            });
+            alert('✅ Announcement posted to all users!');
+            document.getElementById('announcement-text').value = '';
+        }
+
+        async function clearAnnouncement() {
+            await db.collection('app_settings').doc('announcement').set({
+                message: '',
+                active: false,
+                posted_at: new Date().toISOString()
+            });
+            alert('Announcement cleared.');
+        }
+
+        // ==================== USD CALCULATOR ====================
+        function calculateUSD() {
+            const amount = parseFloat(document.getElementById('gw-amount').value) || 0;
+            const price = parseFloat(document.getElementById('gw-price').value) || 0;
+            const usdDiv = document.getElementById('usd-value');
+            
+            if (amount > 0 && price > 0) {
+                const usd = (amount * price).toFixed(2);
+                usdDiv.innerHTML = `💵 <strong>Total Value: ≈ $${usd} USD</strong> &nbsp;|&nbsp; Each winner gets ≈ $${(usd / (parseInt(document.getElementById('gw-winners').value) || 1)).toFixed(2)} USD`;
+                usdDiv.style.display = 'block';
+            } else {
+                usdDiv.style.display = 'none';
+            }
+        }
+
+        // ==================== DASHBOARD ====================
+        async function loadDashboardStats() {
+            try {
+                const users = await db.collection('users').get();
+                const giveaways = await db.collection('giveaways').get();
+                const pending = await db.collection('users').where('activation_status', '==', 'pending').get();
+                const referrals = await db.collection('referral_earnings').get();
+                
+                let totalGiven = 0;
+                let activeCount = 0;
+                
+                giveaways.forEach(doc => {
+                    const g = doc.data();
+                    if (g.status === 'active') activeCount++;
+                    if (g.status === 'completed') totalGiven += g.total_amount || 0;
+                });
+
+                document.getElementById('stat-total-users').textContent = users.size;
+                document.getElementById('stat-active-users').textContent = users.docs.filter(u => u.data().activation_status === 'active').length;
+                document.getElementById('stat-total-giveaways').textContent = giveaways.size;
+                document.getElementById('stat-active-giveaways').textContent = activeCount;
+                document.getElementById('stat-total-given').textContent = formatNumber(totalGiven);
+                document.getElementById('stat-pending-activations').textContent = pending.size;
+                document.getElementById('stat-total-referrals').textContent = referrals.size;
+                
+                loadCountryBreakdown(users);
+            } catch (e) {
+                console.error('Dashboard error:', e);
+            }
+        }
+
+        function formatNumber(num) {
+            if (!num) return '0';
+            if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return '-';
+            const d = new Date(isoString);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        async function loadCountryBreakdown(usersSnapshot) {
+            const countries = {};
+            usersSnapshot.forEach(doc => {
+                const c = doc.data().country || 'Unknown';
+                countries[c] = (countries[c] || 0) + 1;
+            });
+            
+            const tbody = document.getElementById('country-table-body');
+            tbody.innerHTML = '';
+            
+            const total = usersSnapshot.size || 1;
+            Object.entries(countries).sort((a, b) => b[1] - a[1]).forEach(([country, count]) => {
+                const pct = ((count / total) * 100).toFixed(1);
+                tbody.innerHTML += `<tr><td>${country}</td><td>${count}</td><td>${pct}%</td></tr>`;
+            });
+        }
+
+        // ==================== CREATE GIVEAWAY ====================
+        async function createGiveaway() {
+            const name = document.getElementById('gw-name').value.trim();
+            const amount = parseInt(document.getElementById('gw-amount').value);
+            const winners = parseInt(document.getElementById('gw-winners').value);
+            const duration = parseInt(document.getElementById('gw-duration').value) || 48;
+            const social = document.getElementById('gw-social').value.trim();
+            const message = document.getElementById('gw-message').value.trim();
+            const price = parseFloat(document.getElementById('gw-price').value) || 0;
+
+            if (!name || !amount || !winners) {
+                alert('Please fill in name, amount, and winners');
+                return;
+            }
+
+            const code = generateCode(name, winners);
+            const now = new Date();
+            const endTime = new Date(now.getTime() + duration * 60 * 60 * 1000);
+            const usdValue = price > 0 ? (amount * price).toFixed(2) : null;
+
+            const giveaway = {
+                giveaway_id: code,
+                name: name,
+                social_link: social,
+                message: message,
+                total_amount: amount,
+                recipients_count: winners,
+                duration_hours: duration,
+                start_time: now.toISOString(),
+                end_time: endTime.toISOString(),
+                status: 'active',
+                queue_count: 0,
+                winners_selected: false,
+                winners: [],
+                amount_per_winner: Math.floor(amount / winners),
+                usd_value: usdValue,
+                transaction_hash: '',
+                created_by: 'admin',
+                created_at: now.toISOString()
+            };
+
+            try {
+                await db.collection('giveaways').doc(code).set(giveaway);
+                
+                document.getElementById('code-display').textContent = code;
+                document.getElementById('generated-code').classList.remove('hidden');
+                
+                document.getElementById('gw-name').value = '';
+                document.getElementById('gw-amount').value = '';
+                document.getElementById('gw-winners').value = '';
+                document.getElementById('gw-duration').value = '48';
+                document.getElementById('gw-social').value = '';
+                document.getElementById('gw-message').value = '';
+                document.getElementById('gw-price').value = '';
+                document.getElementById('usd-value').style.display = 'none';
+                
+                alert('✅ Giveaway created successfully! Code: ' + code);
+            } catch (e) {
+                alert('Error creating giveaway: ' + e.message);
+                console.error(e);
+            }
+        }
+
+        function generateCode(name, winners) {
+            const clean = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            return `${clean}-${winners}-${random}`;
+        }
+
+        function copyCode() {
+            const code = document.getElementById('code-display').textContent;
+            navigator.clipboard.writeText(code);
+            alert('Code copied!');
+        }
+
+        function copyShareText() {
+            const code = document.getElementById('code-display').textContent;
+            const text = `🌟 Join the Helping to Rise giveaway!\n\nCode: ${code}\n\nEnter this code in the mini app to join the queue.\n\nHelping to Rise — Share a Meal, Spread Hope 🍽️`;
+            navigator.clipboard.writeText(text);
+            alert('Share text copied!');
+        }
+
+        // ==================== ACTIVE GIVEAWAYS ====================
+        async function loadActiveGiveaways() {
+            const container = document.getElementById('active-giveaways-list');
+            container.innerHTML = '<div class="loading"></div>';
+            
+            try {
+                const snapshot = await db.collection('giveaways').orderBy('created_at', 'desc').get();
+                
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="alert alert-info">No giveaways yet. Create one!</div>';
+                    return;
+                }
+
+                let html = '';
+                snapshot.forEach(doc => {
+                    const g = doc.data();
+                    const isExpired = new Date() > new Date(g.end_time);
+                    const statusClass = g.status === 'completed' ? 'status-completed' : isExpired ? 'status-expired' : 'status-active';
+                    const statusText = g.status === 'completed' ? 'COMPLETED' : isExpired ? 'EXPIRED' : 'ACTIVE';
+                    const usdText = g.usd_value ? `≈ $${g.usd_value} USD` : '';
+                    
+                    html += `
+                        <div class="card">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                                <div>
+                                    <div style="color:#00d4aa;font-size:18px;font-weight:bold;">${g.name}</div>
+                                    <div style="color:#8ba3be;font-size:12px;">${g.giveaway_id}</div>
+                                </div>
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:15px;margin-bottom:15px;">
+                                <div><div style="color:#8ba3be;font-size:11px;">Pool</div><div style="color:#ffd700;font-size:16px;font-weight:bold;">${formatNumber(g.total_amount)} RISE</div>${usdText ? `<div style="color:#8ba3be;font-size:10px;">${usdText}</div>` : ''}</div>
+                                <div><div style="color:#8ba3be;font-size:11px;">Queue</div><div style="color:#00d4aa;font-size:16px;font-weight:bold;">${g.queue_count || 0}</div></div>
+                                <div><div style="color:#8ba3be;font-size:11px;">Winners</div><div style="color:#e0e6ed;font-size:16px;font-weight:bold;">${g.recipients_count}</div></div>
+                            </div>
+                            <div style="margin-bottom:15px;">
+                                <div style="color:#8ba3be;font-size:11px;">Time Remaining</div>
+                                <div style="color:#e0e6ed;font-size:14px;">${formatTimeRemaining(g.end_time)}</div>
+                                <div class="progress-bar"><div class="progress-fill" style="width:${calculateProgress(g.start_time, g.end_time)}%"></div></div>
+                            </div>
+                            <div style="display:flex;gap:10px;">
+                                ${isExpired && !g.winners_selected && g.status !== 'completed' ? 
+                                    `<button class="btn btn-primary" onclick="pickWinners('${g.giveaway_id}')">🎲 Pick Winners</button>` : 
+                                    g.winners_selected ? `<button class="btn btn-secondary" onclick="viewWinners('${g.giveaway_id}')">👥 View Winners</button>` :
+                                    `<button class="btn btn-secondary" disabled>⏳ Waiting...</button>`
+                                }
+                                <button class="btn btn-danger" onclick="cancelGiveaway('${g.giveaway_id}')">❌ Cancel</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="alert alert-warning">Error loading giveaways</div>';
+            }
+        }
+
+        function formatTimeRemaining(endTime) {
+            const end = new Date(endTime);
+            const now = new Date();
+            const diff = end - now;
+            if (diff <= 0) return 'Expired';
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${hours}h ${minutes}m`;
+        }
+
+        function calculateProgress(start, end) {
+            const startTime = new Date(start).getTime();
+            const endTime = new Date(end).getTime();
+            const now = new Date().getTime();
+            const total = endTime - startTime;
+            const elapsed = now - startTime;
+            return Math.min(100, Math.max(0, (elapsed / total) * 100));
+        }
+
+        // ==================== PICK WINNERS ====================
+        let currentWinners = [];
+        let currentGiveawayId = '';
+
+        async function pickWinners(giveawayId) {
+            try {
+                const queueSnapshot = await db.collection('queue').where('giveaway_id', '==', giveawayId).get();
+                
+                if (queueSnapshot.empty) {
+                    alert('No one joined this giveaway yet!');
+                    return;
+                }
+
+                const entries = [];
+                queueSnapshot.forEach(doc => entries.push(doc.data()));
+                
+                const giveaway = await db.collection('giveaways').doc(giveawayId).get();
+                const g = giveaway.data();
+                const winnerCount = Math.min(g.recipients_count, entries.length);
+                
+                for (let i = entries.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [entries[i], entries[j]] = [entries[j], entries[i]];
+                }
+                
+                const selected = entries.slice(0, winnerCount);
+                
+                currentWinners = [];
+                for (const winner of selected) {
+                    const userDoc = await db.collection('users').doc(winner.user_id).get();
+                    const userData = userDoc.data() || {};
+                    currentWinners.push({
+                        ...winner,
+                        wallet_address: userData.wallet_address || 'NO WALLET CONNECTED'
+                    });
+                }
+                
+                currentGiveawayId = giveawayId;
+                
+                const winnerHtml = currentWinners.map((w, i) => `
+                    <div class="winner-card">
+                        <div style="color:#00d4aa;font-weight:bold;">Winner #${i + 1}</div>
+                        <div class="winner-address">${w.wallet_address}</div>
+                        <div class="winner-amount">${formatNumber(g.amount_per_winner)} RISE</div>
+                    </div>
+                `).join('');
+                
+                const copyText = currentWinners.map(w => `${w.wallet_address} ${g.amount_per_winner}`).join('\n');
+                document.getElementById('winner-copy-box').textContent = copyText;
+                
+                document.getElementById('winner-modal-text').innerHTML = `Selected <strong>${winnerCount}</strong> winners from <strong>${entries.length}</strong> entries.<br>Each winner gets <strong>${formatNumber(g.amount_per_winner)} RISE</strong>.<<br><br><span style="color:#ffd700;">Copy the list below and paste into your wallet to send manually.</span>`;
+                document.getElementById('winner-list-display').innerHTML = winnerHtml;
+                document.getElementById('winner-modal').classList.remove('hidden');
+                
+            } catch (e) {
+                alert('Error picking winners: ' + e.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('winner-modal').classList.add('hidden');
+        }
+
+        function copyWinnerAddresses() {
+            const text = document.getElementById('winner-copy-box').textContent;
+            navigator.clipboard.writeText(text);
+            alert('Winner addresses copied! Paste into your TON wallet batch send.');
+        }
+
+        async function confirmSend() {
+            try {
+                const batch = db.batch();
+                const gwRef = db.collection('giveaways').doc(currentGiveawayId);
+                const gwDoc = await gwRef.get();
+                const g = gwDoc.data();
+                
+                batch.update(gwRef, {
+                    winners: currentWinners.map(w => w.user_id),
+                    winners_selected: true,
+                    status: 'completed'
+                });
+                
+                for (const winner of currentWinners) {
+                    const qRef = db.collection('queue').doc(`${currentGiveawayId}_${winner.user_id}`);
+                    batch.update(qRef, { is_winner: true, claim_status: 'pending' });
+                }
+                
+                await batch.commit();
+                
+                for (const winner of currentWinners) {
+                    await db.collection('transactions').add({
+                        type: 'giveaway_prize',
+                        giveaway_id: currentGiveawayId,
+                        to_address: winner.wallet_address,
+                        to_user_id: winner.user_id,
+                        amount: g.amount_per_winner,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    });
+                    
+                    try {
+                        const userDoc = await db.collection('users').doc(winner.user_id).get();
+                        const user = userDoc.data();
+                        
+                        if (user && user.referred_by) {
+                            const referrerDoc = await db.collection('users').where('referral_code', '==', user.referred_by).get();
+                            if (!referrerDoc.empty) {
+                                const referrer = referrerDoc.docs[0];
+                                const referralAmount = Math.floor(g.amount_per_winner * 0.1);
+                                
+                                await db.collection('referral_earnings').add({
+                                    referrer_id: referrer.id,
+                                    referred_id: winner.user_id,
+                                    giveaway_id: currentGiveawayId,
+                                    win_amount: g.amount_per_winner,
+                                    referral_percentage: 10,
+                                    referral_amount: referralAmount,
+                                    status: 'pending',
+                                    created_at: new Date().toISOString()
+                                });
+                            }
+                        }
+                    } catch (err) { console.error('Referral error:', err); }
+                }
+                
+                closeModal();
+                alert('✅ Winners recorded! Go to Transactions tab to see your send list. Send tokens manually from your wallet, then mark each as paid.');
+                loadActiveGiveaways();
+                loadTransactions();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function cancelGiveaway(giveawayId) {
+            if (!confirm('Cancel this giveaway?')) return;
+            await db.collection('giveaways').doc(giveawayId).update({ status: 'cancelled' });
+            loadActiveGiveaways();
+        }
+
+        async function viewWinners(giveawayId) {
+            const doc = await db.collection('giveaways').doc(giveawayId).get();
+            const g = doc.data();
+            alert(`Winners: ${g.winners?.join(', ') || 'None'}\n\nGo to Transactions tab to see wallet addresses and amounts.`);
+        }
+
+        // ==================== PENDING ACTIVATIONS ====================
+        async function loadPendingActivations() {
+            const tbody = document.getElementById('pending-table-body');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><div class="loading"></div></td></tr>';
+            
+            try {
+                const snapshot = await db.collection('users').where('activation_status', '==', 'pending').orderBy('created_at', 'desc').get();
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8ba3be;">No pending activations</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const u = doc.data();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${u.telegram_username || 'Unknown'}</td>
+                            <td>${u.country || 'Unknown'}</td>
+                            <td class="winner-address">${u.wallet_address || 'No wallet'}</td>
+                            <td>${formatDate(u.created_at)}</td>
+                            <td>
+                                <button class="btn btn-primary" style="padding:6px 12px;font-size:11px;" onclick="approveUser('${doc.id}')">Approve</button>
+                                <button class="btn btn-danger" style="padding:6px 12px;font-size:11px;" onclick="rejectUser('${doc.id}')">Reject</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ff4757;">Error loading</td></tr>';
+            }
+        }
+
+        async function approveUser(userId) {
+            await db.collection('users').doc(userId).update({ activation_status: 'active' });
+            loadPendingActivations();
+        }
+
+        async function rejectUser(userId) {
+            await db.collection('users').doc(userId).update({ activation_status: 'rejected' });
+            loadPendingActivations();
+        }
+
+        // ==================== SECURITY ====================
+        async function loadSecurityFlags() {
+            const tbody = document.getElementById('security-table-body');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;"><div class="loading"></div></td></tr>';
+            
+            try {
+                const users = await db.collection('users').get();
+                const deviceMap = {};
+                users.forEach(doc => {
+                    const u = doc.data();
+                    const device = u.device_id || 'unknown';
+                    if (!deviceMap[device]) deviceMap[device] = [];
+                    deviceMap[device].push({ id: doc.id, ...u });
+                });
+                
+                const flags = [];
+                Object.entries(deviceMap).forEach(([device, accounts]) => {
+                    if (accounts.length > 1) {
+                        flags.push({
+                            user: accounts[0].telegram_username || 'Unknown',
+                            flag: 'Multiple accounts',
+                            details: `${accounts.length} accounts on 1 device`,
+                            severity: accounts.length > 3 ? 'high' : 'medium'
+                        });
+                    }
+                });
+                
+                if (flags.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ba3be;">No suspicious activity detected</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = flags.map(f => `
+                    <tr class="${f.severity === 'high' ? 'flagged-row' : ''}">
+                        <td>${f.user}</td>
+                        <td>${f.flag}</td>
+                        <td>${f.details}</td>
+                        <td><button class="btn btn-danger" style="padding:6px 12px;font-size:11px;">Block</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#ff4757;">Error</td></tr>';
+            }
+        }
+
+        // ==================== REFERRALS ====================
+        async function loadReferrals() {
+            const tbody = document.getElementById('referral-table-body');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><div class="loading"></div></td></tr>';
+            
+            try {
+                const snapshot = await db.collection('referral_earnings').where('status', '==', 'pending').orderBy('created_at', 'desc').get();
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8ba3be;">No pending referrals</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const r = doc.data();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${r.referrer_id.substring(0, 10)}...</td>
+                            <td>${r.referred_id.substring(0, 10)}...</td>
+                            <td>${r.giveaway_id}</td>
+                            <td style="color:#ffd700;font-weight:bold;">${formatNumber(r.referral_amount)}</td>
+                            <td><span class="status-badge status-pending">Pending</span></td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ff4757;">Error</td></tr>';
+            }
+        }
+
+        // ==================== TRANSACTIONS ====================
+        async function loadTransactions() {
+            const tbody = document.getElementById('transaction-table-body');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><div class="loading"></div></td></tr>';
+            
+            try {
+                const snapshot = await db.collection('transactions').orderBy('created_at', 'desc').limit(100).get();
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8ba3be;">No transactions yet</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const t = doc.data();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${formatDate(t.created_at)}</td>
+                            <td class="winner-address">${t.to_address || 'Unknown'}</td>
+                            <td>${formatNumber(t.amount)}</td>
+                            <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+                            <td>
+                                ${t.status === 'pending' ? 
+                                    `<button class="btn btn-primary" style="padding:6px 12px;font-size:11px;" onclick="markPaid('${doc.id}')">Mark Paid</button>` :
+                                    `<span style="color:#00d4aa;">Done</span>`
+                                }
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ff4757;">Error</td></tr>';
+            }
+        }
+
+        async function markPaid(transactionId) {
+            if (!confirm('Confirm you have manually sent the tokens to this wallet?')) return;
+            await db.collection('transactions').doc(transactionId).update({ status: 'completed' });
+            loadTransactions();
+        }
+
+        async function copyPendingList() {
+            try {
+                const snapshot = await db.collection('transactions').where('status', '==', 'pending').get();
+                if (snapshot.empty) {
+                    alert('No pending transactions!');
+                    return;
+                }
+                let text = '';
+                snapshot.forEach(doc => {
+                    const t = doc.data();
+                    text += `${t.to_address} ${t.amount}\n`;
+                });
+                navigator.clipboard.writeText(text);
+                alert('Pending send list copied! Paste into your wallet batch send tool.');
+            } catch (e) {
+                alert('Error copying list');
+            }
+        }
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!checkAdminAuth()) return;
+            loadDashboardStats();
+        });
+    </script>
+
+</body>
+</html>
