@@ -418,12 +418,18 @@
 
         // ==================== CHANNEL GATE ====================
         function openChannel() {
-            openLink('https://t.me/helpingtorise');
-            document.getElementById('gate-confirm-btn').disabled = false;
-            document.getElementById('gate-confirm-btn').textContent = '✅ I Have Joined';
-            document.getElementById('gate-confirm-btn').classList.remove('gate-btn-secondary');
-            document.getElementById('gate-confirm-btn').classList.add('gate-btn-primary');
-        }
+    if (tg && tg.openTelegramLink) {
+        tg.openTelegramLink('https://t.me/helpingtorise');
+    } else if (tg) {
+        tg.openLink('https://t.me/helpingtorise');
+    } else {
+        window.open('https://t.me/helpingtorise', '_blank');
+    }
+    document.getElementById('gate-confirm-btn').disabled = false;
+    document.getElementById('gate-confirm-btn').textContent = '✅ I Have Joined';
+    document.getElementById('gate-confirm-btn').classList.remove('gate-btn-secondary');
+    document.getElementById('gate-confirm-btn').classList.add('gate-btn-primary');
+}
 
         async function confirmChannelJoin() {
             await db.collection('users').doc(currentUser.id).update({ channel_joined: true });
